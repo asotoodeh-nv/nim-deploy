@@ -1,0 +1,13 @@
+{{- if and .Values.nodeSelector (has (get .Values.nodeSelector "nvidia.com/gpu.product") .Values.imexSupportedGPUs) }}
+apiVersion: resource.nvidia.com/v1beta1
+kind: ComputeDomain
+metadata:
+  name: {{ include "nim-llm.fullname" . }}-compute-domain
+  labels:
+    {{- include "nim-llm.labels" . | nindent 4 }}
+spec:
+  numNodes: {{ .Values.multiNode.workers | default 1 }}
+  channel:
+    resourceClaimTemplate:
+      name: {{ include "nim-llm.fullname" . }}-compute-domain-channel
+{{- end }} 

@@ -22,6 +22,11 @@ spec:
         annotations:
           {{- toYaml .Values.podAnnotations | nindent 10 }}
       spec:
+        {{- if and .Values.nodeSelector (has (get .Values.nodeSelector "nvidia.com/gpu.product") .Values.imexSupportedGPUs) }}
+        resourceClaims:
+        - name: compute-domain-channel
+          resourceClaimTemplateName: {{ include "nim-llm.fullname" . }}-compute-domain-channel
+        {{- end }} 
         {{- if .Values.initContainers.extraInit }}
         initContainers:
         {{- range .Values.initContainers.extraInit }}
@@ -35,6 +40,16 @@ spec:
             # this image is build with the Dockerfile under ./build
             image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
             env:
+              - name: NIM_LEADER_ROLE
+                value: "true"
+              {{- if .Values.nimModelProfile }}
+              - name: NIM_MODEL_PROFILE
+                value: "{{ .Values.nimModelProfile }}"
+              {{- end }}
+              - name: NIM_MPI_ALLOW_RUN_AS_ROOT
+                value: "{{ ternary "1" "0" (eq (int $.Values.podSecurityContext.runAsUser) 0) }}"
+              - name: GPUS_PER_NODE
+                value: "{{ .Values.multiNode.gpusPerNode }}"
               - name: OMPI_MCA_orte_keep_fqdn_hostnames
                 value: "true"
               - name: OMPI_MCA_plm_rsh_args
@@ -50,10 +65,6 @@ spec:
               {{- include "nim-llm.JSONLLoggingEnvVars" . | indent 14 }}
               - name: NIM_CACHE_PATH
                 value: {{ .Values.model.nimCache | quote }}
-              - name: NGC_HOME
-                value: {{ .Values.model.nimCache }}/ngc
-              - name: HF_HOME
-                value: {{ .Values.model.nimCache }}/huggingface
               - name: NUMBA_CACHE_DIR
                 value: /tmp/numba
               - name: OUTLINES_CACHE_DIR
@@ -118,7 +129,15 @@ spec:
                 --hostfile /etc/mpi/hostfile-${GROUP_INDEX} \
                 -map-by slot \
                 -x \
+                NIM_LEADER_ROLE \
+                -x \
+                NIM_MODEL_PROFILE \
+                -x \
+                NIM_MPI_ALLOW_RUN_AS_ROOT \
+                -x \
                 NIM_CACHE_PATH \
+                -x \
+                GPUS_PER_NODE \
                 -x \
                 NGC_API_KEY \
                 -x \
@@ -139,10 +158,6 @@ spec:
                 VLLM_NVEXT_LOGGING_CONFIG_PATH \
                 -x \
                 NIM_NUM_COMPUTE_NODES \
-                -x \
-                HF_HOME \
-                -x \
-                NGC_HOME \
                 -x \
                 NUMBA_CACHE_DIR \
                 -x \
@@ -198,6 +213,11 @@ spec:
         annotations:
           {{- toYaml .Values.podAnnotations | nindent 10 }}
       spec:
+        {{- if and .Values.nodeSelector (has (get .Values.nodeSelector "nvidia.com/gpu.product") .Values.imexSupportedGPUs) }}
+        resourceClaims:
+        - name: compute-domain-channel
+          resourceClaimTemplateName: {{ include "nim-llm.fullname" . }}-compute-domain-channel
+        {{- end }} 
         {{- if .Values.initContainers.extraInit }}
         initContainers:
         {{- range .Values.initContainers.extraInit }}
@@ -253,6 +273,10 @@ spec:
                   secretKeyRef:
                     name: {{ .Values.model.ngcAPISecret }}
                     key: NGC_API_KEY
+              {{- if .Values.nimModelProfile }}
+              - name: NIM_MODEL_PROFILE
+                value: "{{ .Values.nimModelProfile }}"
+              {{- end }}
               - name: NIM_SERVER_PORT
                 value: {{ .Values.model.openaiPort | quote }}
               - name: NIM_JSONL_LOGGING

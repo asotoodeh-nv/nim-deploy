@@ -235,6 +235,7 @@ Volume set for multi-node options
 - name: dshm
   emptyDir:
     medium: Memory
+    sizeLimit: 256Gi
 - name: scripts-volume
   configMap:
     name: {{ $.Release.Name }}-scripts-configmap
@@ -292,3 +293,24 @@ Executable for multinode deployments -- if using a container 1.1.2 or less, scri
 /opt/nim/start-mpi-cluster.sh
 {{- end -}}
 {{- end -}}
+
+{{/*
+Define the list of GPUs that support IMEX (Inter-Module Express) for high-bandwidth communication between nodes
+*/}}
+{{- define "nim-llm.imexSupportedGPUs" -}}
+{{- $supportedGPUs := list "HGX-GB200" -}}
+{{- $supportedGPUs | toYaml | nindent 0 }}
+{{- end }}
+
+{{/*
+Check if the node selector GPU supports IMEX
+*/}}
+{{- define "nim-llm.supportsIMEX" -}}
+{{- $supportedGPUs := list "HGX-GB200" -}}
+{{- $gpuProduct := get .Values.nodeSelector "nvidia.com/gpu.product" -}}
+{{- if and .Values.nodeSelector (has $gpuProduct $supportedGPUs) -}}
+true
+{{- else -}}
+false
+{{- end }}
+{{- end }}

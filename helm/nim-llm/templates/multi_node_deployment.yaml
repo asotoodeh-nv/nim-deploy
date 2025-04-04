@@ -22,7 +22,7 @@ spec:
         annotations:
           {{- toYaml .Values.podAnnotations | nindent 10 }}
       spec:
-        {{- if and .Values.nodeSelector (has (get .Values.nodeSelector "nvidia.com/gpu.product") .Values.imexSupportedGPUs) }}
+        {{- if eq (include "nim-llm.supportsIMEX" .) "true" }}
         resourceClaims:
         - name: compute-domain-channel
           resourceClaimTemplateName: {{ include "nim-llm.fullname" . }}-compute-domain-channel
@@ -37,7 +37,6 @@ spec:
           {{- toYaml .Values.podSecurityContext | nindent 10 }}
         containers:
           - name: nim-leader
-            # this image is build with the Dockerfile under ./build
             image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
             env:
               - name: NIM_LEADER_ROLE
@@ -171,6 +170,10 @@ spec:
               {{- include "nim-llm.ports" . | nindent 14 }}
             resources:
               {{- toYaml .Values.resources | nindent 14 }}
+              {{- if eq (include "nim-llm.supportsIMEX" .) "true" }}
+              claims:
+                - name: compute-domain-channel
+              {{- end }}  
             volumeMounts:
               {{- include "nim-llm.volumeMounts" $ | nindent 14 }}
               - name: ssh-pk
@@ -213,7 +216,7 @@ spec:
         annotations:
           {{- toYaml .Values.podAnnotations | nindent 10 }}
       spec:
-        {{- if and .Values.nodeSelector (has (get .Values.nodeSelector "nvidia.com/gpu.product") .Values.imexSupportedGPUs) }}
+        {{- if eq (include "nim-llm.supportsIMEX" .) "true" }}
         resourceClaims:
         - name: compute-domain-channel
           resourceClaimTemplateName: {{ include "nim-llm.fullname" . }}-compute-domain-channel
@@ -248,6 +251,10 @@ spec:
               {{- include "nim-llm.ports" $ | nindent 14 }}
             resources:
               {{- toYaml .Values.resources | nindent 14 }}
+              {{- if eq (include "nim-llm.supportsIMEX" .) "true" }}
+              claims:
+                - name: compute-domain-channel
+              {{- end }}  
             volumeMounts:
               {{- include "nim-llm.volumeMounts" $ | nindent 14 }}
               - name: ssh-confs
@@ -377,6 +384,12 @@ spec:
             - -map-by
             - slot
             - -x
+            - NIM_LEADER_ROLE
+            - -x
+            - NIM_MODEL_PROFILE
+            - -x
+            - NIM_MPI_ALLOW_RUN_AS_ROOT
+            - -x
             - NIM_CACHE_PATH
             - -x
             - NGC_API_KEY
@@ -420,6 +433,14 @@ spec:
               {{- toYaml $.Values.multiNode.mpiJob.launcherResources | nindent 14 }}
             {{- end }}
             env:
+              - name: NIM_LEADER_ROLE
+                value: "true"
+              {{- if .Values.nimModelProfile }}
+              - name: NIM_MODEL_PROFILE
+                value: "{{ .Values.nimModelProfile }}"
+              {{- end }}
+              - name: NIM_MPI_ALLOW_RUN_AS_ROOT
+                value: "{{ ternary "1" "0" (eq (int $.Values.podSecurityContext.runAsUser) 0) }}" 
               - name: OUTLINES_CACHE_DIR
                 value: /tmp/outlines
               - name: VLLM_CONFIGURE_LOGGING
@@ -485,6 +506,11 @@ spec:
             {{- toYaml $.Values.multiNode.mpiJob.workerAnnotations | nindent 12 }}
             {{- end }}
         spec:
+          {{- if eq (include "nim-llm.supportsIMEX" .) "true" }}
+          resourceClaims:
+          - name: compute-domain-channel
+            resourceClaimTemplateName: {{ include "nim-llm.fullname" . }}-compute-domain-channel
+          {{- end }} 
           serviceAccountName: {{ include "nim-llm.serviceAccountName" $ }}
           securityContext:
             {{- toYaml $.Values.podSecurityContext | nindent 12 }}
@@ -543,6 +569,10 @@ spec:
               {{- include "nim-llm.ports" $ | nindent 14 }}
             resources:
               {{- toYaml $.Values.resources | nindent 14 }}
+              {{- if eq (include "nim-llm.supportsIMEX" .) "true" }}
+              claims:
+                - name: compute-domain-channel
+              {{- end }}  
             volumeMounts:
               {{- include "nim-llm.volumeMounts" $ | nindent 14 }}
               - name: ssh-confs

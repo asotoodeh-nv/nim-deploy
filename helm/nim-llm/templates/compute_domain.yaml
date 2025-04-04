@@ -1,4 +1,4 @@
-{{- if and .Values.nodeSelector (has (get .Values.nodeSelector "nvidia.com/gpu.product") .Values.imexSupportedGPUs) }}
+{{- if eq (include "nim-llm.supportsIMEX" .) "true" }}
 apiVersion: resource.nvidia.com/v1beta1
 kind: ComputeDomain
 metadata:
